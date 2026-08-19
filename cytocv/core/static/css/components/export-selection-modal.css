@@ -379,7 +379,7 @@
         color: #fff;
         outline: none;
     }
-    .export-selection-btn.confirm:disabled {
+    .export-selection-btn:disabled {
         opacity: 0.52;
         cursor: not-allowed;
     }
@@ -527,7 +527,10 @@
         font-weight: 600;
         line-height: 1.25;
         opacity: 1;
-        transition: opacity 140ms ease;
+        transition: color 0.18s ease, opacity 140ms ease;
+    }
+    .export-intensity-filter-status[data-filter-state="pending"] {
+        color: #f0c95a;
     }
     .export-intensity-filter-status.is-updating {
         opacity: 0.45;

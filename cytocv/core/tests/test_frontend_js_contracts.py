@@ -402,6 +402,24 @@ assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
   slots: [1, 2],
   combinations,
 }}), '2 filters applied');
+assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
+  statistics: ['total'],
+  slots,
+  combinations,
+}}, {{ pending: true }}), '1 filter selected — not applied');
+assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
+  statistics: ['total'],
+  slots: [1, 2],
+  combinations,
+}}, {{ pending: true }}), '2 filters selected — not applied');
+assert.strictEqual(hooks.sameIntensityFilters(
+  {{ statistics: ['max', 'total'], slots: [2, 1], combinations: ['green_in_green', 'red_in_red'] }},
+  {{ statistics: ['total', 'max'], slots: [1, 2], combinations: ['red_in_red', 'green_in_green'] }}
+), true);
+assert.strictEqual(hooks.sameIntensityFilters(
+  {{ statistics: ['total'], slots, combinations }},
+  {{ statistics: ['max'], slots, combinations }}
+), false);
 assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
   statistics: ['total'],
   slots: [1, 2],
@@ -473,6 +491,507 @@ assert.strictEqual(
   hooks.formatContourIntensitySummary(items, Array.from(manualOverride), true),
   '12 intensity columns selected'
 );
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+    def test_export_selection_controller_stages_custom_filters_until_apply(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript controller checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "export_selection_modal.js"
+        script = r"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync(__JS_PATH__, 'utf8');
+
+class FakeClassList {
+  constructor(initial = []) {
+    this.values = new Set(initial);
+  }
+  add(...names) {
+    names.forEach((name) => this.values.add(name));
+  }
+  remove(...names) {
+    names.forEach((name) => this.values.delete(name));
+  }
+  toggle(name, force) {
+    if (force === undefined) {
+      if (this.values.has(name)) this.values.delete(name);
+      else this.values.add(name);
+      return this.values.has(name);
+    }
+    if (force) this.values.add(name);
+    else this.values.delete(name);
+    return force;
+  }
+  contains(name) {
+    return this.values.has(name);
+  }
+}
+
+function dataKey(attributeName) {
+  return attributeName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+class FakeElement {
+  constructor(tagName = 'div', options = {}) {
+    this.tagName = String(tagName).toUpperCase();
+    this.children = [];
+    this.parentNode = null;
+    this.dataset = { ...(options.dataset || {}) };
+    this.classList = new FakeClassList(options.classes || []);
+    this.attributes = {};
+    this.listeners = new Map();
+    this.style = {
+      display: options.display || '',
+      values: new Map(),
+      setProperty(name, value, priority) {
+        this.values.set(name, { value, priority: priority || '' });
+      },
+    };
+    this.hidden = !!options.hidden;
+    this.disabled = !!options.disabled;
+    this.checked = !!options.checked;
+    this.type = options.type || '';
+    this.value = options.value || '';
+    this.textContent = options.textContent || '';
+    this.className = '';
+    this.offsetWidth = 1;
+  }
+  appendChild(child) {
+    child.parentNode = this;
+    this.children.push(child);
+    return child;
+  }
+  append(...children) {
+    children.forEach((child) => this.appendChild(child));
+  }
+  set innerHTML(value) {
+    assert.strictEqual(value, '');
+    this.children.forEach((child) => { child.parentNode = null; });
+    this.children = [];
+  }
+  get innerHTML() {
+    return '';
+  }
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+  getAttribute(name) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name)
+      ? this.attributes[name]
+      : null;
+  }
+  addEventListener(name, handler) {
+    if (!this.listeners.has(name)) this.listeners.set(name, []);
+    this.listeners.get(name).push(handler);
+  }
+  dispatch(name, extra = {}) {
+    const event = {
+      target: this,
+      preventDefault() {},
+      stopPropagation() {},
+      ...extra,
+    };
+    (this.listeners.get(name) || []).forEach((handler) => handler(event));
+  }
+  click() {
+    if (!this.disabled) this.dispatch('click');
+  }
+  change() {
+    this.dispatch('change');
+  }
+  focus() {}
+  remove() {
+    if (!this.parentNode) return;
+    this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    this.parentNode = null;
+  }
+  descendants() {
+    return this.children.flatMap((child) => [child, ...child.descendants()]);
+  }
+  matches(selector) {
+    if (selector.startsWith('.')) return this.classList.contains(selector.slice(1));
+    if (selector === 'input[type="checkbox"]') {
+      return this.tagName === 'INPUT' && this.type === 'checkbox';
+    }
+    if (selector === 'input[type="checkbox"]:checked') {
+      return this.tagName === 'INPUT' && this.type === 'checkbox' && this.checked;
+    }
+    if (selector === 'button:not(:disabled)') {
+      return this.tagName === 'BUTTON' && !this.disabled;
+    }
+    const dataMatch = selector.match(/^\[data-([a-z0-9-]+)\]$/);
+    if (dataMatch) {
+      return Object.prototype.hasOwnProperty.call(this.dataset, dataKey(dataMatch[1]));
+    }
+    return false;
+  }
+  querySelectorAll(selector) {
+    return this.descendants().filter((element) => element.matches(selector));
+  }
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] || null;
+  }
+}
+
+const elementsById = new Map();
+const tableHeaders = [];
+const document = {
+  cookie: '',
+  activeElement: null,
+  body: new FakeElement('body'),
+  handlers: new Map(),
+  createElement(tagName) {
+    return new FakeElement(tagName);
+  },
+  getElementById(id) {
+    return elementsById.get(id) || null;
+  },
+  querySelectorAll(selector) {
+    return selector === '#celltable thead th' ? tableHeaders : [];
+  },
+  addEventListener(name, handler) {
+    if (!this.handlers.has(name)) this.handlers.set(name, []);
+    this.handlers.get(name).push(handler);
+  },
+};
+
+function element(tagName = 'div', options = {}) {
+  return new FakeElement(tagName, options);
+}
+
+function register(id, target) {
+  target.id = id;
+  elementsById.set(id, target);
+  return target;
+}
+
+const backdrop = register('exportSelectionBackdrop', element('div', { display: 'none' }));
+backdrop.setAttribute('aria-hidden', 'true');
+const panel = element('div', { classes: ['export-selection-modal'] });
+backdrop.appendChild(panel);
+
+const fileView = register('exportFileSelectionView', element('div', { hidden: true }));
+const statsView = register('exportStatSelectionView', element('div'));
+panel.append(fileView, statsView);
+
+const fileList = register('exportFileSelectionList', element());
+const fileCount = register('exportFileSelectionCount', element('span'));
+const backFileButton = register('backExportFileSelectionBtn', element('button'));
+const continueFileButton = register('continueExportFileSelectionBtn', element('button'));
+fileView.append(fileCount, fileList, backFileButton, continueFileButton);
+
+const title = register('exportSelectionTitle', element('h3'));
+const message = register('exportSelectionMessage', element('p'));
+const fileMessage = register('exportFileSelectionMessage', element('p'));
+const statCount = register('exportSelectionCount', element('span'));
+const statList = register('exportSelectionList', element());
+const cancelButton = register('cancelExportSelectionBtn', element('button'));
+const confirmButton = register('confirmExportSelectionBtn', element('button'));
+const chooseFilesButton = register('chooseExportFilesBtn', element('button'));
+const formatToggle = register('exportFormatToggle', element());
+statsView.append(
+  title,
+  message,
+  fileMessage,
+  statCount,
+  statList,
+  cancelButton,
+  confirmButton,
+  chooseFilesButton,
+  formatToggle
+);
+
+const quickSelect = register('exportIntensityQuickSelect', element());
+const filterStatus = register('exportIntensityFilterStatus', element('p', {
+  dataset: { filterState: 'applied' },
+  textContent: '0 filters applied',
+}));
+const quickSelectBody = register('exportIntensityQuickSelectBody', element());
+const availableControls = register('exportIntensityAvailableControls', element());
+const unavailableMessage = register('exportIntensityUnavailableMessage', element('p', { hidden: true }));
+const quickSelectActions = element('div', { classes: ['export-quick-select-actions'] });
+quickSelect.append(
+  filterStatus,
+  unavailableMessage,
+  quickSelectBody,
+  availableControls,
+  quickSelectActions
+);
+statsView.appendChild(quickSelect);
+
+const filterInputs = [];
+function addFilter(kind, value) {
+  const input = element('input', {
+    type: 'checkbox',
+    value: String(value),
+    checked: true,
+    dataset: { exportIntensityFilter: kind },
+  });
+  filterInputs.push(input);
+  availableControls.appendChild(input);
+  return input;
+}
+['total', 'max', 'average'].forEach((value) => addFilter('statistic', value));
+[1, 2, 3].forEach((value) => addFilter('slot', value));
+['red_in_red', 'green_in_red', 'red_in_green', 'green_in_green']
+  .forEach((value) => addFilter('combination', value));
+
+function addIntensityAction(action, options = {}) {
+  const button = element('button', {
+    dataset: { exportIntensityAction: action },
+    disabled: !!options.disabled,
+  });
+  quickSelectActions.appendChild(button);
+  return button;
+}
+const resetButton = addIntensityAction('reset');
+const applyButton = addIntensityAction('apply', { disabled: true });
+const totalsButton = addIntensityAction('totals');
+
+const combinations = ['red_in_red', 'green_in_red', 'red_in_green', 'green_in_green'];
+const statistics = ['total', 'max', 'average'];
+const slots = [1, 2, 3];
+const items = [{
+  id: 'puncta_distance',
+  tableField: 'puncta_distance',
+  label: 'Fallback Puncta Distance',
+  group: 'puncta_distance',
+  defaultSelected: true,
+  disabled: false,
+}];
+for (const combination of combinations) {
+  for (const statistic of statistics) {
+    for (const slot of slots) {
+      const id = `${combination}_${statistic}_intensity_${slot}`;
+      items.push({
+        id,
+        tableField: id,
+        label: id,
+        group: 'contour_intensity',
+        family: 'contour_intensity',
+        combination,
+        statistic,
+        slot,
+        defaultSelected: true,
+        disabled: false,
+      });
+    }
+  }
+}
+
+tableHeaders.push(
+  element('th', { textContent: 'Cell ID' }),
+  element('th', { textContent: 'Cell Type' }),
+  ...items.map((item, index) => element('th', {
+    textContent: index === 0 ? 'Distance Between Red Puncta (um)' : `Header ${item.id}`,
+  }))
+);
+
+const context = {
+  document,
+  console,
+  window: {
+    location: { href: '' },
+    matchMedia: () => ({ matches: true }),
+    setTimeout(callback) {
+      callback();
+      return 1;
+    },
+    clearTimeout() {},
+    alert() {},
+  },
+};
+vm.runInNewContext(source, context);
+const api = context.window.CytoCVExportSelection;
+const exportCalls = [];
+const fileData = {
+  Statistics: {
+    1: { stat_visibility: { red_green_intensity: true } },
+  },
+};
+const controller = api.init({
+  metadata: {
+    alwaysIncluded: [
+      { id: 'cell_id', disabled: true },
+      { id: 'cell_type', disabled: true },
+    ],
+    groups: [
+      { id: 'puncta_distance', label: 'Puncta Distance' },
+      { id: 'contour_intensity', label: 'Contour Intensity' },
+    ],
+    items,
+  },
+  getCurrentFileContext: () => ({ fileUUID: 'file-1', fileData }),
+  getSelectableFiles: () => [],
+  buildExportUrl(fileUUID, format, selected) {
+    exportCalls.push({ fileUUID, format, selected: Array.from(selected) });
+    return `/download/${fileUUID}?format=${format}`;
+  },
+});
+assert.ok(controller);
+
+function statInputs() {
+  return statList.querySelectorAll('input[type="checkbox"]');
+}
+function selectedIds() {
+  return statList.querySelectorAll('input[type="checkbox"]:checked').map((input) => input.value);
+}
+function findFilter(kind, value) {
+  return filterInputs.find((input) => (
+    input.dataset.exportIntensityFilter === kind && input.value === String(value)
+  ));
+}
+function assertOpeningState() {
+  assert.strictEqual(selectedIds().length, 37);
+  assert.ok(filterInputs.every((input) => input.checked));
+  assert.strictEqual(filterStatus.textContent, '0 filters applied');
+  assert.strictEqual(filterStatus.dataset.filterState, 'applied');
+  assert.strictEqual(applyButton.disabled, true);
+  assert.strictEqual(confirmButton.disabled, false);
+}
+
+controller.open('csv');
+assertOpeningState();
+const punctaLabel = statList.querySelectorAll('[data-export-stat-label-for]')
+  .find((label) => label.dataset.exportStatLabelFor === 'puncta_distance');
+assert.strictEqual(punctaLabel.textContent, 'Distance Between Red Puncta (um)');
+const openingSelection = selectedIds();
+
+const maxFilter = findFilter('statistic', 'max');
+maxFilter.checked = false;
+maxFilter.change();
+assert.deepStrictEqual(selectedIds(), openingSelection);
+assert.strictEqual(filterStatus.textContent, '1 filter selected — not applied');
+assert.strictEqual(filterStatus.dataset.filterState, 'pending');
+assert.strictEqual(applyButton.disabled, false);
+assert.strictEqual(confirmButton.disabled, true);
+confirmButton.click();
+assert.strictEqual(exportCalls.length, 0);
+
+maxFilter.checked = true;
+maxFilter.change();
+assert.deepStrictEqual(selectedIds(), openingSelection);
+assert.strictEqual(filterStatus.textContent, '0 filters applied');
+assert.strictEqual(filterStatus.dataset.filterState, 'applied');
+assert.strictEqual(applyButton.disabled, true);
+assert.strictEqual(confirmButton.disabled, false);
+
+maxFilter.checked = false;
+maxFilter.change();
+applyButton.click();
+const appliedSelection = selectedIds();
+assert.strictEqual(appliedSelection.length, 25);
+assert.ok(appliedSelection.includes('puncta_distance'));
+assert.ok(!appliedSelection.some((id) => id.includes('_max_intensity_')));
+assert.strictEqual(filterStatus.textContent, '1 filter applied');
+assert.strictEqual(filterStatus.dataset.filterState, 'applied');
+assert.strictEqual(applyButton.disabled, true);
+assert.strictEqual(confirmButton.disabled, false);
+confirmButton.click();
+assert.strictEqual(exportCalls.length, 1);
+assert.deepStrictEqual(exportCalls[0], {
+  fileUUID: 'file-1',
+  format: 'csv',
+  selected: appliedSelection,
+});
+
+const averageFilter = findFilter('statistic', 'average');
+averageFilter.checked = false;
+averageFilter.change();
+assert.strictEqual(confirmButton.disabled, true);
+resetButton.click();
+assertOpeningState();
+assert.deepStrictEqual(selectedIds(), openingSelection);
+
+maxFilter.checked = false;
+maxFilter.change();
+assert.strictEqual(filterStatus.dataset.filterState, 'pending');
+totalsButton.click();
+const totalSelection = selectedIds();
+assert.strictEqual(totalSelection.length, 13);
+assert.ok(totalSelection.includes('puncta_distance'));
+assert.ok(totalSelection.filter((id) => id.includes('_intensity_'))
+  .every((id) => id.includes('_total_intensity_')));
+assert.strictEqual(filterStatus.textContent, '1 filter applied');
+assert.strictEqual(filterStatus.dataset.filterState, 'applied');
+assert.strictEqual(applyButton.disabled, true);
+assert.strictEqual(confirmButton.disabled, false);
+
+controller.close();
+controller.open('xlsx');
+assertOpeningState();
+
+maxFilter.checked = false;
+maxFilter.change();
+applyButton.click();
+assert.strictEqual(selectedIds().length, 25);
+controller.refresh();
+assertOpeningState();
+assert.strictEqual(statInputs().length, 37);
+""".replace("__JS_PATH__", json.dumps(str(js_path)))
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+    def test_single_file_export_url_builders_distinguish_explicit_empty_selection(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript URL checks.")
+
+        builders = []
+        for path, function_name in (
+            ("js/pages/display-viewer.js", "buildDisplayExportUrl"),
+            ("js/pages/dashboard-viewer.js", "buildDashboardExportUrl"),
+        ):
+            source = static_text(path)
+            start = source.index(f"function {function_name}(")
+            end = source.index("function getExportSelectionStatLabel", start)
+            builders.append(source[start:end])
+
+        script = """
+const assert = require('assert');
+const getCurrentSpatialUnit = () => 'px';
+const getCurrentCellTypeFilter = () => 'all';
+const getCurrentPunctaSourceContourCountFilter = () => 'all';
+""" + "\n".join(builders) + """
+
+function verifyBuilder(builder) {
+  const legacy = new URL(builder('file one', 'csv', null), 'https://cytocv.test');
+  assert.strictEqual(legacy.searchParams.has('_columns'), false);
+
+  const omitted = new URL(builder('file one', 'csv'), 'https://cytocv.test');
+  assert.strictEqual(omitted.searchParams.has('_columns'), false);
+
+  const explicitEmpty = new URL(builder('file one', 'xlsx', []), 'https://cytocv.test');
+  assert.strictEqual(explicitEmpty.searchParams.has('_columns'), true);
+  assert.strictEqual(explicitEmpty.searchParams.get('_columns'), '');
+
+  const selected = new URL(
+    builder('file one', 'csv', ['puncta_distance', 'red_in_red_total_intensity_1']),
+    'https://cytocv.test'
+  );
+  assert.strictEqual(
+    selected.searchParams.get('_columns'),
+    'puncta_distance,red_in_red_total_intensity_1'
+  );
+}
+
+verifyBuilder(buildDisplayExportUrl);
+verifyBuilder(buildDashboardExportUrl);
 """
         result = subprocess.run(
             [node, "-e", script],

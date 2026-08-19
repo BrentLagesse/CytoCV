@@ -802,7 +802,7 @@
                 _cell_type: getCurrentCellTypeFilter(),
                 _puncta_source_contour_count: getCurrentPunctaSourceContourCountFilter(),
             });
-            if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
+            if (Array.isArray(selectedColumns)) {
                 params.set('_columns', selectedColumns.join(','));
             }
             return `/experiment/${encodeURIComponent(fileUUID)}/display/?${params.toString()}`;

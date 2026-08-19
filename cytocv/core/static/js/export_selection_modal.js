@@ -57,13 +57,18 @@
     return format === 'xlsx' ? 'xlsx' : 'csv';
   }
 
-  function getHeaderLabels(items, useCurrentTable) {
+  function getHeaderLabels(items, useCurrentTable, alwaysIncludedCount) {
     const labels = new Map();
     if (!useCurrentTable) return labels;
     const headers = Array.from(document.querySelectorAll('#celltable thead th'));
-    if (headers.length < 2) return labels;
+    // The rendered table begins with server-declared identity columns that do
+    // not appear in the selectable metric list.
+    const headerOffset = Number.isInteger(alwaysIncludedCount)
+      ? Math.max(alwaysIncludedCount, 0)
+      : 1;
+    if (headers.length <= headerOffset) return labels;
     items.forEach((item, index) => {
-      const header = headers[index + 1];
+      const header = headers[index + headerOffset];
       const text = header ? (header.textContent || '').replace(/\s+/g, ' ').trim() : '';
       if (text) labels.set(item.id, text);
     });
@@ -287,8 +292,30 @@
     return count;
   }
 
-  function formatContourIntensityFilterStatus(filters) {
+  function sameIntensityFilters(left, right) {
+    const normalizedLeft = normalizeIntensityFilters(left);
+    const normalizedRight = normalizeIntensityFilters(right);
+    return (
+      normalizedLeft.statistics.size === normalizedRight.statistics.size
+      && Array.from(normalizedLeft.statistics).every(
+        (value) => normalizedRight.statistics.has(value)
+      )
+      && normalizedLeft.slots.size === normalizedRight.slots.size
+      && Array.from(normalizedLeft.slots).every((value) => normalizedRight.slots.has(value))
+      && normalizedLeft.combinations.size === normalizedRight.combinations.size
+      && Array.from(normalizedLeft.combinations).every(
+        (value) => normalizedRight.combinations.has(value)
+      )
+    );
+  }
+
+  function formatContourIntensityFilterStatus(filters, options) {
     const count = contourIntensityActiveFilterCount(filters);
+    if (options && options.pending) {
+      return count === 1
+        ? '1 filter selected — not applied'
+        : `${count} filters selected — not applied`;
+    }
     return count === 1 ? '1 filter applied' : `${count} filters applied`;
   }
 
@@ -437,6 +464,9 @@
     const triggerFormats = options.triggerFormats || {};
     const items = metadata && Array.isArray(metadata.items) ? metadata.items : [];
     const groups = metadata && Array.isArray(metadata.groups) ? metadata.groups : [];
+    const alwaysIncluded = metadata && Array.isArray(metadata.alwaysIncluded)
+      ? metadata.alwaysIncluded
+      : [];
     const itemById = new Map(items.map((item) => [item.id, item]));
     const intensityItems = items.filter(isContourIntensityItem);
     const groupLabels = new Map(groups.map((group) => [group.id, group.label || group.id]));
@@ -455,6 +485,9 @@
     const intensityActionButtons = Array.from(
       backdrop ? backdrop.querySelectorAll('[data-export-intensity-action]') : []
     );
+    const intensityApplyButton = intensityActionButtons.find(
+      (button) => button.dataset.exportIntensityAction === 'apply'
+    ) || null;
     const intensityActions = backdrop ? backdrop.querySelector('.export-quick-select-actions') : null;
 
     if (
@@ -474,6 +507,10 @@
     let viewTimer = null;
     let downloading = false;
     let intensitySelectionSnapshot = new Set();
+    // Custom filters are drafts until Apply is clicked; presets bypass the
+    // draft step and update both the filter controls and metric checkboxes.
+    let appliedIntensityFilters = allIntensityFilters();
+    let intensityFiltersPending = false;
 
     function fileContext() {
       if (typeof options.getCurrentFileContext === 'function') {
@@ -642,6 +679,20 @@
       });
     }
 
+    function resetIntensityFilterState() {
+      appliedIntensityFilters = allIntensityFilters();
+      intensityFiltersPending = false;
+      setIntensityFilterValues(appliedIntensityFilters);
+    }
+
+    function refreshIntensityFilterPendingState() {
+      intensityFiltersPending = !sameIntensityFilters(
+        currentIntensityFilters(),
+        appliedIntensityFilters
+      );
+      updateStatCount();
+    }
+
     function setIntensitySelectionFromFilters(filters) {
       const normalized = normalizeIntensityFilters(filters);
       const applicable = intensityQuickSelectIsApplicable();
@@ -660,7 +711,7 @@
     }
 
     function restoreIntensitySelectionSnapshot() {
-      setIntensityFilterValues(allIntensityFilters());
+      resetIntensityFilterState();
       const restored = new Set(restoreContourIntensitySelection(
         items,
         selectedStatIds(),
@@ -706,10 +757,18 @@
         intensityUnavailableMessage.hidden = applicable;
       }
       if (intensityFilterStatusEl) {
+        intensityFilterStatusEl.dataset.filterState = applicable
+          ? (intensityFiltersPending ? 'pending' : 'applied')
+          : 'unavailable';
         const nextStatus = applicable
-          ? formatContourIntensityFilterStatus(currentIntensityFilters())
+          ? formatContourIntensityFilterStatus(currentIntensityFilters(), {
+            pending: intensityFiltersPending,
+          })
           : 'Unavailable';
         updateTextWithFade(intensityFilterStatusEl, nextStatus);
+      }
+      if (intensityApplyButton) {
+        intensityApplyButton.disabled = !applicable || !intensityFiltersPending;
       }
     }
 
@@ -801,7 +860,7 @@
         );
         updateCountState(statCountEl, count);
       }
-      confirmBtn.disabled = count === 0 || downloading;
+      confirmBtn.disabled = count === 0 || downloading || intensityFiltersPending;
       updatePresetState(selected);
       updateIntensityQuickSelectState(selected);
     }
@@ -900,7 +959,11 @@
     function buildStatRows() {
       const visibility = activeVisibility();
       const useCurrentTableLabels = activeMode === 'single';
-      const headerLabels = getHeaderLabels(items, useCurrentTableLabels);
+      const headerLabels = getHeaderLabels(
+        items,
+        useCurrentTableLabels,
+        alwaysIncluded.length
+      );
       statList.innerHTML = '';
 
       const grouped = new Map();
@@ -942,12 +1005,17 @@
 
         statList.appendChild(section);
       });
+      resetIntensityFilterState();
       updateStatCount();
     }
 
     function refreshStatLabels() {
       const useCurrentTableLabels = activeMode === 'single';
-      const headerLabels = getHeaderLabels(items, useCurrentTableLabels);
+      const headerLabels = getHeaderLabels(
+        items,
+        useCurrentTableLabels,
+        alwaysIncluded.length
+      );
       refreshStatLabelElements(
         statList,
         itemById,
@@ -1088,7 +1156,12 @@
     async function bulkDownload() {
       const selectedColumns = selectedStatIds();
       const fileIds = selectedFileIdsInOrder();
-      if (!selectedColumns.length || !fileIds.length || downloading) return;
+      if (
+        !selectedColumns.length
+        || !fileIds.length
+        || downloading
+        || intensityFiltersPending
+      ) return;
       if (!options.bulkExportUrl || typeof options.buildBulkExportPayload !== 'function') return;
 
       downloading = true;
@@ -1172,7 +1245,7 @@
 
     intensityFilterInputs.forEach((input) => {
       input.addEventListener('change', () => {
-        updateIntensityQuickSelectState();
+        refreshIntensityFilterPendingState();
       });
     });
 
@@ -1193,10 +1266,15 @@
         ) {
           const filters = intensityFiltersForAction(action, currentIntensityFilters());
           setIntensityFilterValues(filters);
+          appliedIntensityFilters = normalizeIntensityFilters(filters);
+          intensityFiltersPending = false;
           setIntensitySelectionFromFilters(filters);
           return;
         }
-        setIntensitySelectionFromFilters(currentIntensityFilters());
+        const filters = currentIntensityFilters();
+        appliedIntensityFilters = normalizeIntensityFilters(filters);
+        intensityFiltersPending = false;
+        setIntensitySelectionFromFilters(filters);
       });
     });
 
@@ -1211,7 +1289,7 @@
     });
     confirmBtn.addEventListener('click', () => {
       const selected = selectedStatIds();
-      if (!selected.length) return;
+      if (!selected.length || intensityFiltersPending) return;
       if (activeMode === 'multi') {
         void bulkDownload();
         return;
@@ -1260,6 +1338,7 @@
       contourIntensitySelectedCount,
       formatContourIntensityFilterStatus,
       formatContourIntensitySummary,
+      getHeaderLabels,
       allIntensityFilters,
       intensityFiltersForAction,
       isContourIntensityAvailable,
@@ -1269,6 +1348,7 @@
       refreshStatLabelElements,
       restoreContourIntensitySelection,
       resolveStatLabel,
+      sameIntensityFilters,
       updateTextWithFade,
     },
   };
